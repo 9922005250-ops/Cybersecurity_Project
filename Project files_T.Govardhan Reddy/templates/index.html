@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PowerShell Threat Detection Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 16px;
+        color: #2b2b2b;
+        background: #f3f4f6;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        padding: 20px;
+      }
+      h1 {
+        color: #c62828;
+        margin-bottom: 0;
+      }
+      .stats-grid {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+      .stat-card {
+        flex: 1 1 150px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 12px 16px;
+      }
+      .stat-card h2 {
+        margin: 0;
+      }
+      .search-area {
+        margin: 16px 0;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .search-area input,
+      .search-area select {
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+      }
+      th {
+        background: #f9f9f9;
+      }
+      .high {
+        background: #ffebee;
+      }
+      .medium {
+        background: #fff3e0;
+      }
+      .low {
+        background: #fffde7;
+      }
+      .hidden-row {
+        display: none;
+      }
+      .chart-row {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+      .chart-panel {
+        flex: 1 1 420px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 12px;
+      }
+      @media (max-width: 768px) {
+        .chart-row {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>PowerShell Threat Detection Dashboard</h1>
+      <p>This mini-SIEM shows suspicious command activity from CSV logs.</p>
+
+      <div class="stats-grid">
+        <div class="stat-card"><h2>Total logs</h2><p>{{ total_logs }}</p></div>
+        <div class="stat-card"><h2>Suspicious</h2><p>{{ suspicious_count }}</p></div>
+        <div class="stat-card"><h2>High</h2><p>{{ high_count }}</p></div>
+        <div class="stat-card"><h2>Medium</h2><p>{{ medium_count }}</p></div>
+        <div class="stat-card"><h2>Low</h2><p>{{ low_count }}</p></div>
+      </div>
+
+      <div class="search-area">
+        <input id="searchInput" type="text" placeholder="Search messages/users/time..." />
+        <select id="severityFilter">
+          <option value="ALL">All Severities</option>
+          <option value="HIGH">High</option>
+          <option value="MEDIUM">Medium</option>
+          <option value="LOW">Low</option>
+        </select>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-panel">
+          <h3>Severity Distribution</h3>
+          <canvas id="severityChart"></canvas>
+        </div>
+        <div class="chart-panel">
+          <h3>Log Frequency by Severity</h3>
+          <canvas id="frequencyChart"></canvas>
+        </div>
+      </div>
+
+      {% if logs|length == 0 %}
+      <div class="stat-card" style="background: #fff8e1; margin-top: 16px;">
+        No suspicious logs detected yet. Continue monitoring and revisit after logs are updated.
+      </div>
+      {% else %}
+
+      <table id="resultTable">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>User</th>
+            <th>Message</th>
+            <th>Severity</th>
+            <th>Risk Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr class="{{ log.Severity.lower() }}">
+            <td>{{ log.Time }}</td>
+            <td>{{ log.User }}</td>
+            <td>{{ log.Message }}</td>
+            <td>{{ log.Severity }}</td>
+            <td>{{ log.RiskScore }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+
+    <script>
+      const logs = {{ logs|tojson }};
+      const highCount = {{ high_count }};
+      const mediumCount = {{ medium_count }};
+      const lowCount = {{ low_count }};
+
+      const severityCtx = document.getElementById("severityChart").getContext("2d");
+      new Chart(severityCtx, {
+        type: "pie",
+        data: {
+          labels: ["High", "Medium", "Low"],
+          datasets: [{
+            data: [highCount, mediumCount, lowCount],
+            backgroundColor: ["#e53935", "#fb8c00", "#fdd835"],
+          }],
+        },
+        options: {
+          responsive: true,
+        },
+      });
+
+      const frequencyCtx = document.getElementById("frequencyChart").getContext("2d");
+      new Chart(frequencyCtx, {
+        type: "bar",
+        data: {
+          labels: ["High", "Medium", "Low"],
+          datasets: [{
+            label: "Count",
+            data: [highCount, mediumCount, lowCount],
+            backgroundColor: ["#e53935", "#fb8c00", "#fdd835"],
+          }],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true },
+          },
+        },
+      });
+
+      const searchInput = document.getElementById("searchInput");
+      const severityFilter = document.getElementById("severityFilter");
+
+      function filterTable() {
+        const term = searchInput.value.toLowerCase();
+        const severity = severityFilter.value;
+        const rows = document.querySelectorAll("#resultTable tbody tr");
+
+        rows.forEach((row) => {
+          const tds = row.querySelectorAll("td");
+          const rowText = Array.from(tds).map((td) => td.textContent.toLowerCase()).join(" ");
+          const rowSeverity = row.className.toUpperCase();
+
+          const matchesTerm = rowText.includes(term);
+          const matchesSeverity = severity === "ALL" || rowSeverity === severity;
+
+          row.style.display = matchesTerm && matchesSeverity ? "table-row" : "none";
+        });
+      }
+
+      searchInput.addEventListener("input", filterTable);
+      severityFilter.addEventListener("change", filterTable);
+
+      // Highlight external alert for high risk sample in browser console
+      if (highCount > 0) {
+        console.warn("⚠️ HIGH RISK ACTIVITY DETECTED");
+      }
+    </script>
+  </body>
+</html>
